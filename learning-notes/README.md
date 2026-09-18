@@ -17,13 +17,15 @@
 | 范围 | 入口 | 状态 | 笔记 |
 |---|---|---|---|
 | 总体架构 | [`docs/architecture.md`](../docs/architecture.md) | 未开始 | [`architecture/overview.md`](architecture/overview.md) |
-| Cordis 基础 | [`docs/cordis-primer.md`](../docs/cordis-primer.md) | 未开始 | [`architecture/cordis-and-plugins.md`](architecture/cordis-and-plugins.md) |
+| Cordis 基础 | [`docs/cordis-primer.md`](../docs/cordis-primer.md) | 已梳理 | [`architecture/cordis-and-plugins.md`](architecture/cordis-and-plugins.md) |
 | `core` | [`packages/core/README.md`](../packages/core/README.md) | 未开始 | [`groups/core.md`](groups/core.md) |
 | `llm` | [`packages/llm/README.md`](../packages/llm/README.md) | 未开始 | [`groups/llm.md`](groups/llm.md) |
 | `session` | [`packages/session/README.md`](../packages/session/README.md) | 未开始 | [`groups/session.md`](groups/session.md) |
+| `typert` | [`packages/typert/README.md`](../packages/typert/README.md) | 已梳理 | [`packages/typert-protocol.md`](packages/typert-protocol.md) |
 
 ## 目录
 
 - [`architecture/`](architecture/)：跨 package 的整体模型和关键运行流程。
 - [`groups/`](groups/)：package 分组地图和依赖关系。
 - [`packages/`](packages/)：单个 package 的阅读记录，路径尽量镜像源码。
+- [`build-test-and-global-install.md`](build-test-and-global-install.md)：源码构建、测试以及通过 pnpm 全局安装 `dsh` 的步骤和路径。
