@@ -183,6 +183,33 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
   }
 }
 
+/** Log the raw streaming response body without consuming the SDK's response. */
+function logResponse(response: Response, url: string): void {
+  const reader = response.clone().body?.getReader()
+  if (reader === undefined) {
+    console.log('[llm-pi-ai] response', { url, status: response.status, body: '' })
+    return
+  }
+  void (async () => {
+    const decoder = new TextDecoder()
+    let body = ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        body += decoder.decode(value, { stream: true })
+      }
+      body += decoder.decode()
+      console.log('[llm-pi-ai] response', { url, status: response.status, body })
+    } catch (error: unknown) {
+      body += decoder.decode()
+      console.error('[llm-pi-ai] response body read failed', { url, status: response.status, body, error })
+    } finally {
+      reader.releaseLock()
+    }
+  })()
+}
+
 /**
  * pi-ai-backed multi-provider adapter. Each operation reads the current
  * profiles, so a configuration change reaches the next request without a
@@ -318,38 +345,64 @@ export class PiAiAdapter extends LlmAdapter {
       const context = attachments === undefined
         ? toPiContext(options, undefined, onReplayDegrade)
         : await toPiContext(options, attachments, onReplayDegrade)
-      const events = snapshot.models.streamSimple(model, context, {
-        ...profileOptions(profile, reasoning, apiKey),
-        ...options.temperature === undefined ? {} : { temperature: options.temperature },
-        ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },
-        ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
-        signal: watchdog.signal,
-        // Profile headers are deployment-owned; attribution names are
-        // Harness-owned and therefore win collisions.
-        headers: requestHeaders(profile.headers),
-      })
-      const iterator = toStreamChunks(events, model.contextWindow)[Symbol.asyncIterator]()
-      let exhausted = false
+      const logConsole = process.env.LLM_PI_AI_LLM_CONSOLE === 'true'
+      const originalFetch = globalThis.fetch
+      const debugFetch: typeof fetch = async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input)
+        let body: BodyInit | null | undefined = init?.body
+        if (body === undefined && input instanceof Request) body = await input.clone().text()
+        console.log('[llm-pi-ai] request', {
+          url,
+          method: init?.method ?? (input instanceof Request ? input.method : 'GET'),
+          body,
+        })
+        let response: Response
+        try {
+          response = await originalFetch(input, init)
+        } catch (error: unknown) {
+          console.error('[llm-pi-ai] fetch failed', { url, error })
+          throw error
+        }
+        logResponse(response, url)
+        return response
+      }
+      if (logConsole) globalThis.fetch = debugFetch
       try {
-        while (true) {
-          const result = await watchdog.next(iterator)
-          const timeout = timeoutOf(watchdog.signal, 'LLM_STREAM_IDLE_TIMEOUT')
-          if (timeout !== undefined) throw timeout
-          if (result.done) {
-            exhausted = true
-            return
+        const events = snapshot.models.streamSimple(model, context, {
+          ...profileOptions(profile, reasoning, apiKey),
+          ...options.temperature === undefined ? {} : { temperature: options.temperature },
+          ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },
+          ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
+          signal: watchdog.signal,
+          // Profile headers are deployment-owned; attribution names are
+          // Harness-owned and therefore win collisions.
+          headers: requestHeaders(profile.headers),
+        })
+        const iterator = toStreamChunks(events, model.contextWindow)[Symbol.asyncIterator]()
+        let exhausted = false
+        try {
+          while (true) {
+            const result = await watchdog.next(iterator)
+            const timeout = timeoutOf(watchdog.signal, 'LLM_STREAM_IDLE_TIMEOUT')
+            if (timeout !== undefined) throw timeout
+            if (result.done) {
+              exhausted = true
+              return
+            }
+            yield result.value
           }
-          yield result.value
+        } finally {
+          if (!exhausted) {
+            consumer.abort('pi-ai stream consumer stopped')
+            try {
+              await iterator.return(undefined)
+            } catch (_abortedSdkTeardown) {
+              // The stable signal already owns SDK termination; return-time abort cannot add an outcome.
+            }
+          }
         }
       } finally {
-        if (!exhausted) {
-          consumer.abort('pi-ai stream consumer stopped')
-          try {
-            await iterator.return(undefined)
-          } catch (_abortedSdkTeardown) {
-            // The stable signal already owns SDK termination; return-time abort cannot add an outcome.
-          }
-        }
+        if (logConsole && globalThis.fetch === debugFetch) globalThis.fetch = originalFetch
       }
     } catch (error: unknown) {
       if (timeoutOf(watchdog.signal, 'LLM_STREAM_IDLE_TIMEOUT') !== undefined) {

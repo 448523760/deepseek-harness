@@ -1,6 +1,5 @@
 /** VitePress configuration for the locally projected documentation site. */
 
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { DefaultTheme, PageData } from 'vitepress'
 import type { ViteDevServer } from 'vite'
@@ -164,14 +163,6 @@ const sharedTheme: Pick<DefaultTheme.Config, 'search' | 'socialLinks' | 'editLin
 const base = process.env.DOCS_BASE ?? '/'
 
 /**
- * The DeepSeek wordmark, inlined so its `currentColor` fills follow the active
- * theme. An `<img>` would freeze the mark at the colors the file declares.
- */
-const wordmark = readFileSync(resolve(import.meta.dirname, '../public/wordmark.svg'), 'utf8')
-  .trim()
-  .replace('<svg ', '<svg class="dsh-wordmark" ')
-
-/**
  * Styles the default theme does not provide, carried inline because the site
  * runs the stock theme with no theme directory of its own.
  *
@@ -243,7 +234,8 @@ const scrollbarScript = `
  * @returns Markup placed beside the navigation-bar home link.
  */
 function siteTitle(previewTag: string): string {
-  return `<span class="dsh-lockup">${wordmark}<span class="dsh-tag">${previewTag}</span></span>`
+  return `<span class="dsh-lockup"><span class="dsh-tag">${previewTag}</span></span>`
+  // return `<span class="dsh-lockup">${wordmark}<span class="dsh-tag">${previewTag}</span></span>`
 }
 
 export default withMermaid({

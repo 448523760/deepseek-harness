@@ -76,6 +76,8 @@ fiber 用 `DisposableList` 保存当前拥有的 disposer，并在卸载时清�
 | `bail` | 按注册顺序同步调用 | 第一个 bail 值停止后续调用 |
 | `waterfall` | 监听器包裹最后一个 `next()`，由外向内执行 | 不调用 `next()` 就 veto 后续链；调用后可返回内层结果 |
 
+`waterfall` 的源码调用链和 `system-prompt/assemble` 业务用法见[`waterfall 源码笔记`](waterfall.md)。
+
 `internal/*` 事件是 Cordis 自己的扩展点，包括插件创建/销毁、fiber 状态变化、配置解析、服务变化、配置更新、context 读写、监听器注册和 dispatch 诊断。普通事件 dispatch 前会发出 `internal/dispatch`，而内部事件不会再次触发这个诊断事件。
 
 ## 3. 一个插件的主要执行流程

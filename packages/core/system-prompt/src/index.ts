@@ -462,6 +462,9 @@ export class SystemPrompt extends Service {
    * sole prompt section.
    * @param context - the optional scope and plugin-defined assembly fields.
    * @returns the post-waterfall assembly with any complete prompt enforced.
+   *
+   * ---
+   * 了解完 waterfall 的 相关api后再来查看这个具体的业务代码
    */
   // Keep configuration failures on the declared asynchronous error path.
   async assemble(context: AssembleContext = {}): Promise<PromptAssembly> {
